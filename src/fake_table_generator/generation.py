@@ -1,11 +1,15 @@
 import psycopg2 as pg
 from faker import Faker
-from enum import Enum
+from enum import Enum, IntEnum
 from typing import NamedTuple, List
 import random
 import re
 import string
 from tqdm import tqdm
+from pathlib import Path
+class TargetOuput(IntEnum):
+    postgresql = 1
+    csv = 2
 
 class PostgresqlType(Enum):
     date = "date"
@@ -13,7 +17,7 @@ class PostgresqlType(Enum):
     integer = "integer"
     float = "float"
     text = "text"
-
+    #TODO jsonb
 
 class Field(NamedTuple):
     name: str
@@ -54,7 +58,7 @@ def to_pg_schema(fake_table):
     sql += ")"
     return sql
 
-def generate_value(field: PostgresqlType):
+def generate_value(fake,field: PostgresqlType):
     value = "null"
     if field is PostgresqlType.text:
         valid_name = fake.name().replace("'","")
@@ -69,9 +73,26 @@ def generate_value(field: PostgresqlType):
         value = str(random.randint(-5000,5000)*random.random())
     return value
 
-def generate_rows(table: Table, nb_rows: int) -> str:
-    values = ",".join([f"({','.join([generate_value(f.type) for f in table.fields])})" for _ in range(0,nb_rows)])
+def generate_rows_postgresql(fake,table: Table, nb_rows: int) -> str:
+    values = ",".join([f"({','.join([generate_value(fake,f.type) for f in table.fields])})" for _ in range(0,nb_rows)])
     return f"INSERT INTO {table.name} ({','.join([f.name for f in table.fields])}) VALUES {values}"
+
+def generate_rows_csv(fake,table: Table, nb_rows: int) -> str:
+    values = "\n".join([f"{','.join([generate_value(fake,f.type) for f in table.fields])}" for _ in range(0,nb_rows)])
+    return values
+
+
+def main(target, nb_tables, nb_min_cols, nb_max_cols, nb_min_rows, nb_max_rows, available_types, languages:List[str]):
+    fake = Faker(languages)
+    if target == TargetOuput.csv:
+        for t in tqdm(range(nb_tables)):
+            # define template data
+            fake_fields = list(range_field(fake,random.randint(nb_min_cols,nb_max_cols+1)))
+            fake_table = Table(to_pg_name(fake.name()),fake_fields)
+            with Path(f'{fake_table.name}.csv').open('w') as f:
+                f.write(f"{','.join([f.name for f in fake_table.fields])}\n")
+                rows = generate_rows_csv(fake,fake_table,random.randint(nb_min_rows, nb_max_rows))
+                f.write(rows)
 
 if __name__ == "__main__":
     fake = Faker(["it_IT", "en_US", "ja_JP", "he_IL", "zh_CN"])
@@ -86,6 +107,6 @@ if __name__ == "__main__":
             #create table
             cur.execute(to_pg_schema(fake_table))
             for i in tqdm(range(0,random.randint(1,10000))):
-                rows = generate_rows(fake_table,1000)
+                rows = generate_rows_postgresql(fake_table,1000)
                 cur.execute(rows)
         print(f"loaded table n{t}")
