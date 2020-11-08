@@ -7,7 +7,8 @@ import re
 import string
 from tqdm import tqdm
 from pathlib import Path
-class TargetOuput(IntEnum):
+
+class TargetOutput(IntEnum):
     postgresql = 1
     csv = 2
 
@@ -84,7 +85,7 @@ def generate_rows_csv(fake,table: Table, nb_rows: int) -> str:
 
 def main(target, nb_tables, nb_min_cols, nb_max_cols, nb_min_rows, nb_max_rows, available_types, languages:List[str]):
     fake = Faker(languages)
-    if target == TargetOuput.csv:
+    if target == TargetOutput.csv:
         for t in tqdm(range(nb_tables)):
             # define template data
             fake_fields = list(range_field(fake,random.randint(nb_min_cols,nb_max_cols+1)))

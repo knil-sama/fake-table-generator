@@ -32,7 +32,7 @@ setup(
         "psycopg2-binary",
         "tqdm",
         "typing",
-        "click>=7.1.2",
+        "click>=7.1.2"
     ],
     extras_require={
         #"d": ["aiohttp>=3.3.2", "aiohttp-cors"],
@@ -52,7 +52,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "black=black:patched_main",
+            "ftg=fake_table_generator:cli",
         ]
     },
 )

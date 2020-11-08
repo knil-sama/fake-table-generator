@@ -1,0 +1,6 @@
+click>=7.1.2
+faker
+psycopg2-binary
+pytest
+tqdm
+typing
