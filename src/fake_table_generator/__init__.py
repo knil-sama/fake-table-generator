@@ -1,4 +1,4 @@
-from fake_table_generator.generation import TargetOutput, PostgresqlType, main
+from .generation import TargetOutput, PostgresqlType, main
 from typing import List
 import click
 
