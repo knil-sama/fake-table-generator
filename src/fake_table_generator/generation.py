@@ -3,70 +3,30 @@ from faker import Faker
 from enum import Enum, IntEnum
 from typing import NamedTuple, List
 import random
-import re
-import string
 from tqdm import tqdm
 from pathlib import Path
+from .base_type import (
+    PostgresqlType,
+    Table,
+    TargetOutput,
+    RangeFieldsGenerator,
+    to_pg_name,
+)
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-class TargetOutput(IntEnum):
-    postgresql = 1
-    csv = 2
-
-
-class PostgresqlType(Enum):
-    date = "date"
-    timestamp = "timestamp"
-    integer = "integer"
-    float = "float"
-    text = "text"
-    # TODO jsonb
-
-
-class Field(NamedTuple):
-    name: str
-    type: PostgresqlType
-
-
-class Table(NamedTuple):
-    name: str
-    fields: List[Field]
-
-
-def to_pg_name(name: str):
-    name_without_punctuation = re.sub("[" + string.punctuation + "]", "", name)
-    return "_".join(name_without_punctuation.split()).lower()
-
-
-class range_field:
-    def __init__(self, fake, n):
-        self.i = 0
-        self.n = n
-        self.fake = fake
-        self.options_PostgresqlType = list(PostgresqlType)
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        if self.i < self.n:
-            self.i += 1
-            random_name = to_pg_name(self.fake.name())
-            return Field(random_name, random.choice(self.options_PostgresqlType))
-        else:
-            raise StopIteration()
-
-
-def to_pg_schema(fake_table):
-    sql = f"CREATE TABLE IF NOT EXISTS {fake_table.name} ( "
+def to_pg_schema(fake_table: Table) -> str:
+    sql = f"CREATE TABLE IF NOT EXISTS {fake_table.name} (\n"
     sql += ", ".join(
-        [f"{field.name} {field.type.value}" for field in fake_table.fields]
+        [f"{field.name} {field.type.value}\n" for field in fake_table.fields]
     )
-    sql += ")"
+    sql += ");"
     return sql
 
 
-def generate_value(fake, field: PostgresqlType):
+def generate_value(fake, field: PostgresqlType) -> str:
     value = "null"
     if field is PostgresqlType.text:
         valid_name = fake.name().replace("'", "")
@@ -99,25 +59,28 @@ def generate_rows_csv(fake, table: Table, nb_rows: int) -> str:
             for _ in range(0, nb_rows)
         ]
     )
+    logging.infos(
+        f"generated {nb_rows} for table {table.name} with fields {[field for field in table.fields]}"
+    )
     return values
 
 
-def main(
-    target,
-    nb_tables,
-    nb_min_cols,
-    nb_max_cols,
-    nb_min_rows,
-    nb_max_rows,
-    available_types,
+def generate(
+    target: TargetOutput,
+    nb_tables: int,
+    nb_min_cols: int,
+    nb_max_cols: int,
+    nb_min_rows: int,
+    nb_max_rows: int,
+    available_types: List[PostgresqlType],
     languages: List[str],
-):
+) -> None:
     fake = Faker(languages)
     if target == TargetOutput.csv:
         for t in tqdm(range(nb_tables)):
             # define template data
             fake_fields = list(
-                range_field(fake, random.randint(nb_min_cols, nb_max_cols + 1))
+                RangeFieldsGenerator(fake, random.randint(nb_min_cols, nb_max_cols + 1))
             )
             fake_table = Table(to_pg_name(fake.name()), fake_fields)
             with Path(f"{fake_table.name}.csv").open("w") as f:
@@ -126,21 +89,3 @@ def main(
                     fake, fake_table, random.randint(nb_min_rows, nb_max_rows)
                 )
                 f.write(rows)
-
-
-if __name__ == "__main__":
-    fake = Faker(["it_IT", "en_US", "ja_JP", "he_IL", "zh_CN"])
-    for t in range(1, 30):
-        # define template data
-        fake_fields = list(range_field(fake, random.randint(1, 50)))
-        fake_table = Table(to_pg_name(fake.name()), fake_fields)
-        conn = pg.connect(host="", database="", user="", password="")
-        # use for test db so no need for transaction
-        conn.set_session(autocommit=True)
-        with conn.cursor() as cur:
-            # create table
-            cur.execute(to_pg_schema(fake_table))
-            for i in tqdm(range(0, random.randint(1, 10000))):
-                rows = generate_rows_postgresql(fake_table, 1000)
-                cur.execute(rows)
-        print(f"loaded table n{t}")

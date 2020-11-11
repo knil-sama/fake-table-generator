@@ -1,4 +1,5 @@
-from .generation import TargetOutput, PostgresqlType, main
+from .base_type import TargetOutput, PostgresqlType
+from .generation import generate
 import click
 
 
@@ -25,7 +26,7 @@ def cli():
     default=[el.name for el in PostgresqlType],
 )
 @click.option("--languages", type=str, multiple=True, default=["en_US"])
-def generate(
+def main(
     target,
     nb_tables,
     nb_min_cols,
@@ -35,7 +36,7 @@ def generate(
     available_types,
     languages,
 ):
-    main(
+    generate(
         TargetOutput[target],
         nb_tables,
         nb_min_cols,
@@ -47,7 +48,7 @@ def generate(
     )
 
 
-cli.add_command(generate)
+cli.add_command(main)
 
 if __name__ == "__main__":
     cli()
