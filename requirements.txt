@@ -1,5 +1,6 @@
 click>=7.1.2
 faker
+pre-commit
 psycopg2-binary
 pytest
 tqdm
